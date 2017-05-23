@@ -1,0 +1,13 @@
+Enviornment
+
+a) SW pakages used for design
+OS : NOOBS ver 2.1.0
+PIR Sensor control : wiringPi, wiringPi2-python
+8x8 LED Matrix control : https://github.com/rm-hull/max7219.git
+Picam control : OpenCV 3.0.0,
+	https://github.com/raspberrypi/userland, https://github.com/Itseez/opencv/
+
+b) Used parts
+- RPI 8MP Camera Board
+- Digital Infrared Motion Sensor(PIR)
+- 8x8 MAX7219 LED Matrix

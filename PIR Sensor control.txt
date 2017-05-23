@@ -1,0 +1,22 @@
+*************************************************************************************************
+#include <stdio.h>
+#include <wiringPi.h>
+#define PIR 4   //BCM_GPIO23
+
+int main(void){
+        if(wiringPiSetup() == -1)
+                return 1;
+        pinMode(PIR,INPUT);
+        for(;;){
+                if(digitalRead(PIR)==1){
+                        printf("Detection\n");
+                        delay(50);
+                }
+                else{
+                        printf("Not DT\n");
+                        delay(50);
+                }
+        }
+        return 0;
+}
+**************************************************************************************************

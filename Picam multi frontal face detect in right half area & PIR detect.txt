@@ -1,0 +1,192 @@
+***************************************************************************************************
+#include <opencv2/core.hpp>
+#include <opencv2/highgui.hpp>
+#include <opencv2/videoio.hpp>
+#include <opencv2/objdetect.hpp>
+#include <opencv2/imgproc.hpp>
+#include <iostream>
+#include <vector>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <errno.h>
+#include <wiringPi.h>
+#define PIR 4   //BCM_GPIO23
+#include <wiringPiSPI.h>
+#define CHANNEL 0
+#include "font-8x8l.inc"
+uint8_t buf[2];
+char signA[2] = {0x01,0x02};
+using namespace cv;
+using namespace std;
+
+int midScreenX = 325;
+int midFaceX = 0;
+
+void spi(uint8_t reg, uint8_t val) {
+        buf[0] = reg;
+        buf[1] = val;
+        wiringPiSPIDataRW(CHANNEL, buf, 2);
+       // usleep(20);
+}
+
+uint8_t display[8];
+
+void push(uint8_t col) {
+int j;
+        for ( j = 0; j < 7; ++j) {
+                display[j] = display[j+1];
+                display[7] = col;
+        }
+}
+
+void show() {
+int k;
+        for ( k = 0; k < 8; ++k) {
+                spi(k+1,display[k]);
+        }
+}
+
+void clear() {
+int l;
+        for ( l = 0; l < 8; ++l) {
+                push(0);
+        }
+        show();
+}
+
+void setupLEDMatrix(int channel) {
+        if (wiringPiSPISetup(CHANNEL, 1000000) < 0) {
+                fprintf (stderr, "SPI Setup failed: %s\n", strerror (errno));
+                exit(errno);
+        }
+
+        spi(0x09,0x00);
+        spi(0x0B,0x07);
+        spi(0x0A,0xFF);
+        spi(0x0C,0x01);
+}
+
+void spichar(char c) {
+int m;
+        const uint8_t* bits = &font[c * 8];
+        for ( m = 0; m < 8; ++m) {
+                push(bits[m]);
+                show();
+                usleep(100000);
+        }
+}
+
+void scroll(const char* text) {
+int n;
+        int len = strlen(text);
+        for ( n = 0; n < len; ++n) {
+                spichar(text[n]);
+        }
+}
+
+int main(int argc, char** argv){
+        char* text = signA;
+        uint8_t on[] = { 0xFF, 0x11 };
+        uint8_t off[] = { 0xFF, 0x00 };
+        uint8_t buf[2];
+        int i, q, trigger1=0, trigger2=0;
+
+ // capture from web camera init
+ VideoCapture cap(0);
+ cap.open(0);
+
+ Mat img;
+
+// Load cascate classifier placed in sulution folder
+ CascadeClassifier detector;
+ string cascadeName = "/usr/local/share/OpenCV/haarcascades/haarcascade_frontalface_default.xml";
+ bool loaded = detector.load(cascadeName);
+// Parameters of detectMultiscale Cascade Classifier
+ int groundThreshold = 2;
+ double scaleStep = 1.1;
+ Size minimalObjectSize(80, 80);
+ Size maximalObjectSize(200, 200);
+
+// Vector of returned faces
+ vector<Rect> found;
+
+        if (wiringPiSPISetup(CHANNEL, 1000000) < 0) {
+                fprintf (stderr, "SPI Setup failed: %s\n", strerror (errno));
+                exit(errno);
+        }
+
+        if (argc > 1) {
+                text = argv[1];
+        }
+
+        if(wiringPiSetup() == -1)
+                return 0;
+        pinMode(PIR,INPUT);
+
+ for (;;){
+      // Image from camera to Mat
+      cap >> img;
+
+      // why not
+      found.clear();
+  
+      // Detect faces
+      detector.detectMultiScale(img, found, scaleStep, groundThreshold, 0         | 2, minimalObjectSize,maximalObjectSize);
+      // Draw the results into mat retrieved from cam
+      if (found.size() > 0) {
+            for (q = 0; q <= found.size() - 1; q++) {
+             rectangle(img, found[q].br(), found[q].tl(), Scalar(0, 0, 0), 1, 8, 0);
+             }
+	    midFaceX = found[0].x + (found[found.size()].br().x - found[found.size()].tl().x)/2;
+      }
+
+	if(midFaceX > midScreenX){
+		trigger2++;
+		if(trigger2>3)
+			trigger2 = 0;
+	}
+
+	if(digitalRead(PIR) == 1){
+		trigger1++;
+		if(trigger1>5)
+			trigger1 = 0;
+	}
+
+    //Show the results
+      if(!img.empty())
+         imshow("Display", img);
+      int key2 = waitKey(20);
+
+      if(trigger1 == 5 || trigger2 == 3){
+                        setupLEDMatrix(CHANNEL);
+                                memcpy(buf, on, 2);
+                                wiringPiSPIDataRW(CHANNEL, buf, 2);
+                                sleep(1);
+				memcpy(buf, off, 2);
+                                wiringPiSPIDataRW(CHANNEL, buf, 2);
+                                sleep(1);
+
+                                //scroll(text);
+                                //spichar(' ');
+
+			if(trigger1 == 5) cout << "Sensor" << endl;
+			else if(trigger2 == 3) cout << "Camera" << endl;
+                        //printf("Detection\n");
+
+				midFaceX = 0;
+				trigger1 = 0;
+				trigger2 = 0;
+
+                        delay(5);
+                }
+                else{
+                        printf("Not DT\n");
+                        delay(30);
+                }
+ }
+ return 0;
+}
+***************************************************************************************************

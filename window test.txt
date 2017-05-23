@@ -1,0 +1,5 @@
+C:\Users\Leejerome\Downloads\opencv\opencv
+
+C:\Users\Leejerome\Downloads\opencv\opencv\build\x64\vc11\bin
+C:\Users\Leejerome\Downloads\opencv\opencv\build\x86\vc11\bin
+
